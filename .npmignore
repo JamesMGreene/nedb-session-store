@@ -1,0 +1,17 @@
+# Git config
+.gitignore
+
+# Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+Gruntfile.js
+
+# Travis CI config
+.travis.yml
+
+# JSHint config
+.jshintrc
+.jshintignore
+
+# Tests/Specs
+/test/
+/spec/
