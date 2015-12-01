@@ -12,6 +12,10 @@ Gruntfile.js
 .jshintrc
 .jshintignore
 
-# Tests/Specs
-/test/
-/spec/
+# Docs/Tests/Specs
+docs/
+test/
+spec/
+
+# OS-specific hidden files
+.DS_Store
