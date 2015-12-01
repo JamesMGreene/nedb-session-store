@@ -2,10 +2,6 @@
   "name": "nedb-session-store",
   "version": "1.1.0",
   "description": "A session store implementation for Connect & Express backed by an NeDB datastore (either in-memory or file-persisted)",
-  "main": "index.js",
-  "scripts": {
-    "test": "grunt travis --verbose"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/JamesMGreene/nedb-session-store.git"
@@ -31,6 +27,9 @@
   "homepage": "https://github.com/JamesMGreene/nedb-session-store#readme",
   "engines": {
     "node": ">= 0.10.0"
+  },
+  "scripts": {
+    "test": "grunt travis --verbose"
   },
   "dependencies": {
     "nedb": "^1.5.0"
