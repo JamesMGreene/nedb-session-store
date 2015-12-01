@@ -44,14 +44,19 @@ For further details on how to integrate this module with various Connect-compati
 
 ### Options
 
+#### `defaultExpiry`
+
+_Optional._ **[Date]** The default expiry period (max age) in milliseconds to use _if and ONLY if_ the session's expiration is not controlled by the session Cookie configuration. Defaults to 2 weeks.
+
+
 #### `inMemoryOnly`
 
-_Optional._ **[Boolean]** Only persist the datastore within the available in-process memory. Defaults to `true` unless the `filename` option is provided with a valid value.
+_Optional._ **[Boolean]** Only persist the datastore within the available in-process memory. Defaults to `false`.
 
 
 #### `filename`
 
-_Optional._ **[String]** The path to the file where the datastore will be persisted.  If not provided, the datastore will automatically be considered in-memory only.
+_Optional._ **[String]** The path to the file where the datastore will be persisted.  If not provided, the datastore will automatically be assigned the `filename` of `'data/sessions.db'`.
 
 For more details about the underlying `filename` option, please read about it in the [NeDB documentation][].
 
@@ -85,7 +90,7 @@ For more details about the underlying `corruptAfterThreshold` option, please rea
 
 #### `autoCompactInterval`
 
-_Optional._ **[Number]** NeDB's file persistence uses an append-only format for performance reasons, meaning that all updates and deletes actual result in lines being _added_ at the end of the datastore file. To compact the file back into a 1-line-per-document format, you must either restart your application or specify an automatic compaction interval with this option. Valid values must be either `null` (disabled) or an integer between `5000` (5 seconds) and `86400000` (1 day).
+_Optional._ **[Number]** NeDB's file persistence uses an append-only format for performance reasons, meaning that all updates and deletes actual result in lines being _added_ at the end of the datastore file. To compact the file back into a 1-line-per-document format, you must either restart your application or specify an automatic compaction interval with this option. Valid values must be either `null` (disabled) or an integer between `5000` (5 seconds) and `86400000` (1 day). Defaults to 1 day.
 
 _**ONLY applies when your NeDB datastore is file-persisted!**_
 

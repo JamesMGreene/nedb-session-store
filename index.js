@@ -9,6 +9,7 @@
 'use strict';
 
 // Node.js core modules
+var path = require('path');
 var util = require('util');
 
 // Userland modules
@@ -16,6 +17,7 @@ var NeDB = require('nedb');
 
 // "Constants"
 var ONE_DAY = 86400000;
+var TWO_WEEKS = 14 * ONE_DAY;
 
 
 /**
@@ -30,30 +32,30 @@ module.exports = function( connect ) {
   /**
    * Express and/or Connect's session Store
    */
-  // connect.Store == Express 4.x
-  // connect.session.Store == Express 3.x and Connect
+  // connect.Store => Express 5.x/4.x and Connect 3.x with `require('express-session')`
+  // connect.session.Store => Express 3.x/2.x and Connect 2.x/1.x  with `express`
   var Store = connect.Store || connect.session.Store;
 
 
   /**
    * Create a new session store, backed by an NeDB datastore
    * @constructor
-   * @param {Object}   options                        Basically the options from https://github.com/louischatriot/nedb#creatingloading-a-database
+   * @param {Object}   options                        Primarily a subset of the options from https://github.com/louischatriot/nedb#creatingloading-a-database
+   * @param {Number}   options.defaultExpiry          The default expiry period (max age) in milliseconds to use if the session's expiry is not controlled by the session cookie configuration. Default: 2 weeks.
    * @param {Boolean}  options.inMemoryOnly           The datastore will be in-memory only. Overrides `options.filename`.
-   * @param {String}   options.filename               Relative file path where session data will be persisted; if none, datastore will be in-memory only.
+   * @param {String}   options.filename               Relative file path where session data will be persisted; if none, a default of 'data/sessions.db' will be used.
    * @param {Function} options.afterSerialization     Optional serialization callback invoked before writing to file, e.g. for encrypting data.
    * @param {Function} options.beforeDeserialization  Optional deserialization callback invoked after reading from file, e.g. for decrypting data.
    * @param {Number}   options.corruptAfterThreshold  Optional threshold after which an error is thrown if too much data read from file is corrupt. Default: 0.1 (10%).
    * @param {Number}   options.autoCompactInterval    Optional interval in milliseconds at which to auto-compact file-based datastores. Valid range is 5000ms to 1 day. Pass `null` to disable.
    * @param {Function} options.onload                 Optional callback to be invoked when the datastore is loaded and ready.
-   * @param {Function} callback                       Optional callback to be invoked when the datastore is loaded and ready. Overrides `options.onload`.
    */
-  function NeDBStore( options, callback ) {
-    var aci, onLoadFn,
-      _self = this;
+  function NeDBStore( options ) {
+    var onLoadFn, aci,
+        _this = this;
 
-    if ( !(_self instanceof NeDBStore) ) {
-      return new NeDBStore( options, callback );
+    if ( !(_this instanceof NeDBStore) ) {
+      return new NeDBStore( options );
     }
 
     options = options || {};
@@ -62,20 +64,16 @@ module.exports = function( connect ) {
     // within Express middleware
     delete options.nodeWebkitAppName;
 
-    // If the `inMemoryOnly` option was not provided, assign it a default value based on the presence of the `filename` option
-    if ( typeof options.inMemoryOnly !== 'boolean' ) {
-      options.inMemoryOnly = !options.filename;
-    }
+    // Ensure that the `inMemoryOnly` option is a Boolean
+    options.inMemoryOnly = !!options.inMemoryOnly;
 
-    // If the `filename` option was not provided but the `inMemoryOnly` option was falsy, emit an Error and bail out
-    if ( !options.filename && !options.inMemoryOnly ) {
-      _self.emit( 'error', new Error( 'NeDB datastore must either be in-memory or file-persisted but appropriate options were not specified' ) );
-      return;
+    // If the `inMemoryOnly` option was falsy...
+    if ( !options.inMemoryOnly ) {
+      // ...and the `filename` option is falsy, provide a default value for the `filename` option
+      options.filename = options.filename || path.join('data', 'sessions.db');
     }
-
-    // If using an in-memory datastore, clear out the file-based options that no longer apply
-    if ( options.inMemoryOnly ) {
-      options.inMemoryOnly = true;
+    else {
+      // Otherwise (if using an in-memory datastore), clear out the file-based options as they no longer apply
       options.filename = null;
       options.afterSerialization = null;
       options.beforeDeserialization = null;
@@ -83,41 +81,56 @@ module.exports = function( connect ) {
       options.autoCompactInterval = null;
     }
 
+    // Ensure some default expiry period (max age) is specified
+    _this._defaultExpiry =
+      (
+        typeof options.defaultExpiry === 'number' &&
+        Number.isFinite(options.defaultExpiry) &&
+        options.defaultExpiry > 0
+      ) ?
+        parseInt(options.defaultExpiry, 10) :
+        TWO_WEEKS;
+    delete options.defaultExpiry;
+
     // Ensure that any file-based datastore is automatically compacted at least once per day, unless specifically
     // set to `null`
     if ( options.autoCompactInterval !== null ) {
       aci = parseInt(options.autoCompactInterval, 10);
-      options.autoCompactInterval = aci < 5000 ? 5000 : ( aci < ONE_DAY ? aci : ONE_DAY );
+      aci = aci < 5000 ? 5000 : ( aci < ONE_DAY ? aci : ONE_DAY );
     }
+    else {
+      aci = null;
+    }
+    delete options.autoCompactInterval;
 
     // Ensure that we track the time the record was created (`createdAt`) and last modified (`updatedAt`)
     options.timestampData = true;
 
     // Ensure that any file-based datastore starts loading immediately and signals when it is loaded
     options.autoload = true;
-    onLoadFn = ( typeof callback === 'function' && callback ) || ( typeof options.onload === 'function' && options.onload ) || function() {};
+    onLoadFn = typeof options.onload === 'function' ? options.onload : function() {};
     options.onload = function( err ) {
       if ( err ) {
-        _self.emit( 'error', err );
+        _this.emit( 'error', err );
       }
-      _self.emit( ( err ? 'dis' : '' ) + 'connected' );
+      _this.emit( ( err ? 'dis' : '' ) + 'connected' );
       onLoadFn( err );
     };
 
     // Apply the base constructor
-    Store.call( _self, options );
+    Store.call( _this, options );
 
     // Create the datastore (basically equivalent to an isolated Collection in MongoDB)
-    _self.datastore = new NeDB( options );
+    _this.datastore = new NeDB( options );
 
     // Ensure that we continually compact the datafile, if using file-based persistence
-    if ( !options.inMemoryOnly && options.filename ) {
-      _self.datastore.persistence.setAutocompactionInterval( options.autoCompactInterval );
+    if ( options.filename && aci !== null ) {
+      _this.datastore.persistence.setAutocompactionInterval( aci );
     }
   }
 
 
-  // Inherit from Express's core session store
+  // Inherit from Connect/Express's core session store
   util.inherits( NeDBStore, Store );
 
 
@@ -125,10 +138,30 @@ module.exports = function( connect ) {
    * Create or update a single session's data
    */
   NeDBStore.prototype.set = function( sessionId, session, callback ) {
+    // Handle rolling expiration dates
+    var expirationDate;
+    if ( session && session.cookie && session.cookie.expires ) {
+      expirationDate = new Date( session.cookie.expires );
+    }
+    else {
+      expirationDate = new Date( Date.now() + this._defaultExpiry );
+    }
+
+    // Ensure that the Cookie in the `session` is safely serialized
+    var sess = {};
+    Object.keys( session ).forEach(function( key ) {
+      if ( key === 'cookie' && typeof session[key].toJSON === 'function' ) {
+        sess[key] = session[key].toJSON();
+      }
+      else {
+        sess[key] = session[key];
+      }
+    });
+
     // IMPORTANT: NeDB datastores auto-buffer their commands until the database is loaded
     this.datastore.update(
       { _id: sessionId },
-      { $set: { session: session } },
+      { $set: { session: sess, expiresAt: expirationDate } },
       { multi: false, upsert: true },
       function( err, numAffected, newDoc ) {
         if ( !err && numAffected === 0 && !newDoc ) {
@@ -143,11 +176,18 @@ module.exports = function( connect ) {
   /**
    * Touch a single session's data to update the time of its last access
    */
-  NeDBStore.prototype.touch = function( sessionId, callback ) {
+  NeDBStore.prototype.touch = function( sessionId, session, callback ) {
+    var touchSetOp = { updatedAt: new Date() };
+
+    // Handle rolling expiration dates
+    if ( session && session.cookie && session.cookie.expires ) {
+      touchSetOp.expiresAt = new Date( session.cookie.expires );
+    }
+
     // IMPORTANT: NeDB datastores auto-buffer their commands until the database is loaded
     this.datastore.update(
       { _id: sessionId },
-      { $set: { updatedAt: new Date() } },
+      { $set: touchSetOp },
       { multi: false, upsert: false },
       function( err, numAffected ) {
         if ( !err && numAffected === 0 ) {
@@ -163,14 +203,31 @@ module.exports = function( connect ) {
    * Get a single session's data
    */
   NeDBStore.prototype.get = function( sessionId, callback ) {
+    var _this = this;
+
     // IMPORTANT: NeDB datastores auto-buffer their commands until the database is loaded
     this.datastore.findOne(
       { _id: sessionId },
       function( err, existingDoc ) {
-        return callback(
-          err,
-          ( existingDoc && existingDoc.session ) || null
-        );
+        if ( err ) {
+          return callback( err, null );
+        }
+        else if ( existingDoc ) {
+          // If the existing record does not have an expiration and/or has not yet expired, return it
+          if ( existingDoc.session && !existingDoc.expiresAt || new Date() < existingDoc.expiresAt ) {
+            return callback( null, existingDoc.session );
+          }
+          // Otherwise it is an expired session, so destroy it!
+          else {
+            return _this.destroy(
+              sessionId,
+              function( destroyErr ) {
+                callback( destroyErr, null );
+              }
+            );
+          }
+        }
+        return callback( null, null );
       }
     );
   };
@@ -180,21 +237,42 @@ module.exports = function( connect ) {
    * Get ALL sessions' data
    */
   NeDBStore.prototype.all = function( callback ) {
+    var _this = this;
+
     // IMPORTANT: NeDB datastores auto-buffer their commands until the database is loaded
-    this.datastore.find(
+    _this.datastore.find(
       {},
       function( err, existingDocs ) {
         if ( err ) {
-          return callback( err );
+          return callback( err, null );
         }
 
         return callback(
           null,
-          ( existingDocs || [] ).map(
-            function( existingDoc ) {
+          ( existingDocs || [] )
+            .filter(function( existingDoc ) {
+              // If the existing record does not have an expiration and/or has not yet expired, keep it in the result list
+              if ( existingDoc.session && !existingDoc.expiresAt || new Date() < existingDoc.expiresAt ) {
+                return true;
+              }
+              // Otherwise it is an expired session, so destroy it! ...AND remove it from the result list
+              else {
+                // NOTE: The following action makes this `filter`-ing callback an impure function as it has side effects (removing stale sessions)!
+                _this.destroy(
+                  existingDoc._id,
+                  function( destroyErr ) {
+                    if ( destroyErr ) {
+                      // Give consumers a way to observe these `destroy` failures, if desired
+                      _this.emit( 'error', destroyErr );
+                    }
+                  }
+                );
+                return false;
+              }
+            })
+            .map(function( existingDoc ) {
               return existingDoc.session;
-            }
-          )
+            })
         );
       }
     );
@@ -205,11 +283,14 @@ module.exports = function( connect ) {
    * Count ALL sessions
    */
   NeDBStore.prototype.length = function( callback ) {
+    // While using `this.all` is much less performant than using `this.datastore.count`,
+    // it DOES, however, also filter out (and destroy) any stale session records first,
+    // thus resulting in a more accurate final count.
+
     // IMPORTANT: NeDB datastores auto-buffer their commands until the database is loaded
-    this.datastore.count(
-      {},
-      function( err, count ) {
-        return callback( err, count );
+    this.all(
+      function( err, sessions ) {
+        callback( err, ( sessions || [] ).length );
       }
     );
   };
