@@ -113,7 +113,8 @@ module.exports = function( connect ) {
       if ( err ) {
         _this.emit( 'error', err );
       }
-      _this.emit( ( err ? 'dis' : '' ) + 'connected' );
+      // The "express-session" core module listens to the "connect" and "disconnect" event names
+      _this.emit( ( err ? 'dis' : '' ) + 'connect' );
       onLoadFn( err );
     };
 
