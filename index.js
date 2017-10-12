@@ -46,7 +46,7 @@ module.exports = function( connect ) {
    * @param {String}   options.filename               Relative file path where session data will be persisted; if none, a default of 'data/sessions.db' will be used.
    * @param {Function} options.afterSerialization     Optional serialization callback invoked before writing to file, e.g. for encrypting data.
    * @param {Function} options.beforeDeserialization  Optional deserialization callback invoked after reading from file, e.g. for decrypting data.
-   * @param {Number}   options.corruptAfterThreshold  Optional threshold after which an error is thrown if too much data read from file is corrupt. Default: 0.1 (10%).
+   * @param {Number}   options.corruptAlertThreshold  Optional threshold after which an error is thrown if too much data read from file is corrupt. Default: 0.1 (10%).
    * @param {Number}   options.autoCompactInterval    Optional interval in milliseconds at which to auto-compact file-based datastores. Valid range is 5000ms to 1 day. Pass `null` to disable.
    * @param {Function} options.onload                 Optional callback to be invoked when the datastore is loaded and ready.
    */
@@ -77,7 +77,7 @@ module.exports = function( connect ) {
       options.filename = null;
       options.afterSerialization = null;
       options.beforeDeserialization = null;
-      options.corruptAfterThreshold = undefined;
+      options.corruptAlertThreshold = undefined;
       options.autoCompactInterval = null;
     }
 

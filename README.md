@@ -79,13 +79,13 @@ _**ONLY applies when your NeDB datastore is file-persisted!**_
 For more details about the underlying `beforeDeserialization` option, please read about it in the [NeDB documentation][].
 
 
-#### `corruptAfterThreshold`
+#### `corruptAlertThreshold`
 
 _Optional._ **[Number]** NeDB will refuse to start if more than this percentage of the datafile is corrupt. Valid values must be a number between `0` (0%) and `1` (100%). A value of `0` means you do NOT tolerate any corruption, `1` means you do not care about corruption. NeDB uses a default value of `0.1` (10%).
 
 _**ONLY applies when your NeDB datastore is file-persisted!**_
 
-For more details about the underlying `corruptAfterThreshold` option, please read about it in the [NeDB documentation][].
+For more details about the underlying `corruptAlertThreshold` option, please read about it in the [NeDB documentation][].
 
 
 #### `autoCompactInterval`
